@@ -1,4 +1,9 @@
 use hyper;
+use json;
+use native_tls;
+
+use std::io;
+use std::num;
 
 error_chain!{
     errors{
@@ -13,5 +18,9 @@ error_chain!{
 
     foreign_links  {
         HyperError(hyper::Error);
+        IOError(io::Error);
+        JsonError(json::Error);
+        StdNumParseError(num::ParseIntError);
+        NativeTlsError(native_tls::Error);
     }
 }

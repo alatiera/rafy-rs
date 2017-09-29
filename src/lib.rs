@@ -58,6 +58,7 @@
 //! this repository for more information.
 
 extern crate hyper;
+extern crate native_tls;
 extern crate hyper_native_tls;
 extern crate pbr;
 extern crate regex;
@@ -214,7 +215,7 @@ impl Stream {
     /// }
     /// ```
 
-    pub fn download(&self, title: &str) -> hyper::Result<()> {
+    pub fn download(&self, title: &str) -> Result<()> {
         let response = Rafy::send_request(&self.url)?;
         let file_size = Rafy::get_file_size(&response);
         let file_name = format!("{}.{}", title, &self.extension);
@@ -222,16 +223,16 @@ impl Stream {
         Ok(())
     }
 
-    fn write_file(mut response: Response, title: &str, file_size: u64) {
+    fn write_file(mut response: Response, title: &str, file_size: u64) -> Result<()> {
         let mut pb = ProgressBar::new(file_size);
         pb.format("╢▌▌░╟");
 
         let mut buf = [0; 128 * 1024];
-        let mut file = File::create(title).unwrap();
+        let mut file = File::create(title)?;
         loop {
             match response.read(&mut buf) {
                 Ok(len) => {
-                    file.write_all(&buf[..len]).unwrap();
+                    file.write_all(&buf[..len])?;
                     pb.add(len as u64);
                     if len == 0 {
                         break;
@@ -241,6 +242,7 @@ impl Stream {
                 Err(why) => panic!("{}", why),
             };
         }
+        Ok(())
     }
 
 }
@@ -279,14 +281,14 @@ impl Rafy {
 
         let mut url_response = Self::send_request(&url_info)?;
         let mut url_response_str = String::new();
-        url_response.read_to_string(&mut url_response_str).unwrap();
+        url_response.read_to_string(&mut url_response_str)?;
         let basic = Self::parse_url(&url_response_str);
 
         let mut api_response = Self::send_request(&api_info)?; 
         let mut api_response_str = String::new();
-        api_response.read_to_string(&mut api_response_str).unwrap();
+        api_response.read_to_string(&mut api_response_str)?;
 
-        let parsed_json = json::parse(&api_response_str).unwrap();
+        let parsed_json = json::parse(&api_response_str)?;
 
         if basic["status"] != "ok" {
             return Err(ErrorKind::VideoNotFound("placeholder".to_string()).into())
@@ -318,20 +320,20 @@ impl Rafy {
         Ok(Rafy {  videoid: videoid.to_string(),
                 title: title.to_string(),
                 rating: rating.to_string(),
-                viewcount: viewcount.parse::<u32>().unwrap(),
+                viewcount: viewcount.parse::<u32>()?,
                 author: author.to_string(),
-                length: length.parse::<u32>().unwrap(),
+                length: length.parse::<u32>()?,
                 thumbdefault: thumbdefault.to_string(),
-                likes: likes.to_string().parse::<u32>().unwrap(),
-                dislikes: dislikes.to_string().parse::<u32>().unwrap(),
-                commentcount: commentcount.to_string().parse::<u32>().unwrap(),
+                likes: likes.to_string().parse::<u32>()?,
+                dislikes: dislikes.to_string().parse::<u32>()?,
+                commentcount: commentcount.to_string().parse::<u32>()?,
                 description: description.to_string(),
                 thumbmedium: thumbmedium.to_string(),
                 thumbhigh: thumbhigh.to_string(),
                 thumbstandard: thumbstandard.to_string(),
                 thumbmaxres: thumbmaxres.to_string(),
                 published: published.to_string(),
-                category: category.to_string().parse::<u32>().unwrap(),
+                category: category.to_string().parse::<u32>()?,
                 streams: streams,
                 videostreams: videostreams,
                 audiostreams: audiostreams,
@@ -412,11 +414,11 @@ impl Rafy {
         (parsed_streams, parsed_videostreams, parsed_audiostreams)
     }
 
-    fn send_request(url: &str) -> hyper::Result<Response> {
-        let ssl = NativeTlsClient::new().unwrap();
+    fn send_request(url: &str) -> Result<Response> {
+        let ssl = NativeTlsClient::new()?;
         let connector = HttpsConnector::new(ssl);
         let client = Client::with_connector(connector);
-        client.get(url).send()
+        Ok(client.get(url).send()?)
     }
 
     fn parse_url(query: &str) -> HashMap<String, String> {
